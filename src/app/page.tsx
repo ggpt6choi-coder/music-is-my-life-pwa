@@ -8,13 +8,12 @@ import { TrackCard } from '@/components/TrackCard';
 import { PlayerBar } from '@/components/PlayerBar';
 import { AddMusicModal } from '@/components/AddMusicModal';
 import { PlaylistModal } from '@/components/PlaylistModal';
-import { Music, Plus, Share, Smartphone } from 'lucide-react';
+import { Music, Plus } from 'lucide-react';
 
 export default function Home() {
   const { tracks, playlists, currentPlaylistId, searchQuery } = usePlayer();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
-  const [showPwaBanner, setShowPwaBanner] = useState(true);
 
   // Filter tracks by active playlist
   let currentList = tracks;
@@ -44,29 +43,6 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-3 space-y-3">
-        {/* iOS PWA Install Hint Banner (Dismissible) */}
-        {showPwaBanner && (
-          <div className="relative bg-[#F0E8FA] border border-[#DED1F2] rounded-2xl p-3.5 flex items-start justify-between gap-3 shadow-xs">
-            <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white text-[#664F91] flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Smartphone className="w-4 h-4" />
-              </div>
-              <div className="text-xs text-[#473D5C] space-y-0.5">
-                <p className="font-bold">아이폰 홈 화면에 앱으로 추가하기</p>
-                <p className="text-[#756B87] leading-relaxed">
-                  Safari 하단 <Share className="w-3 h-3 inline mx-0.5 text-[#664F91]" /> [공유] 버튼 ➔ <strong>[홈 화면에 추가]</strong>를 누르면 전체 화면 단독 앱으로 설치되며, 잠금화면 & 백그라운드 재생을 영구 무료로 지원합니다.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowPwaBanner(false)}
-              className="text-[#8E869F] hover:text-[#473D5C] text-xs p-1"
-            >
-              닫기
-            </button>
-          </div>
-        )}
-
         {/* Playlist Selector: Left (+ 새 플레이리스트), Right (Select Dropdown) */}
         <PlaylistSelector onCreatePlaylist={() => setPlaylistModalOpen(true)} />
 
@@ -101,7 +77,7 @@ export default function Home() {
             <p className="text-xs text-[#756B87] mb-6 leading-relaxed">
               {searchQuery
                 ? '다른 검색어로 검색해보세요.'
-                : '듣고 싶은 노래를 유튜브에서 검색하여 추가해보세요.'}
+                : '듣고 싶은 노래를 유튜브나 구글 드라이브에서 추가해보세요.'}
             </p>
             {!searchQuery && (
               <button

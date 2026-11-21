@@ -2,7 +2,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { usePlayer } from '@/lib/PlayerContext';
-import { X, Search, Link2, Upload, Music, Loader2, Check, Plus, Sparkles, Download, ExternalLink, Headphones, FileAudio } from 'lucide-react';
+import {
+  X,
+  Search,
+  Link2,
+  Upload,
+  Music,
+  Loader2,
+  Check,
+  Plus,
+  Sparkles,
+  Download,
+  FileAudio,
+  Cloud,
+  FolderOpen,
+  RefreshCw,
+  HardDrive
+} from 'lucide-react';
 import { Track } from '@/lib/types';
 import { SearchResultItem } from '@/app/api/youtube/search/route';
 
@@ -20,7 +36,7 @@ interface PendingTrackMeta {
 
 export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
   const { addTrack } = usePlayer();
-  const [tab, setTab] = useState<'search' | 'upload' | 'link'>('search');
+  const [tab, setTab] = useState<'search' | 'gdrive' | 'upload' | 'link'>('search');
   const [statusMsg, setStatusMsg] = useState('');
   
   // File Upload state (Bulk)
@@ -41,6 +57,20 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
   const [directUrl, setDirectUrl] = useState('');
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkError, setLinkError] = useState('');
+
+  // Google Drive state
+  const [gdriveInput, setGdriveInput] = useState('');
+  const [isSyncingGdrive, setIsSyncingGdrive] = useState(false);
+  const [gdriveError, setGdriveError] = useState('');
+  const [savedFolderUrl, setSavedFolderUrl] = useState('');
+
+  // Load saved Google Drive Folder on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('miml_gdrive_folder');
+      if (saved) setSavedFolderUrl(saved);
+    }
+  }, []);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -134,7 +164,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
       duration,
       artworkUrl: pendingTrack.thumbnail,
       dateAdded: Date.now(),
-      source: 'upload', // Native audio = 100% background playback!
+      source: 'upload',
     };
 
     await addTrack(newTrack, file);
@@ -147,7 +177,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
     }, 1200);
   };
 
-  // Trigger 1-Click Background Audio Download for YouTube item (No link copy needed!)
+  // Trigger 1-Click Background Audio Download for YouTube item
   const handleDownloadYoutubeAudio = (item: SearchResultItem) => {
     let sec = 180;
     if (item.duration) {
@@ -163,7 +193,6 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
       duration: sec,
     });
 
-    // Open direct pre-filled downloader in Safari new tab
     const downloadBridgeUrl = `https://ssyoutube.com/watch?v=${item.id}`;
     window.open(downloadBridgeUrl, '_blank');
   };
@@ -211,6 +240,66 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
     setAddedIds((prev) => new Set([...prev, item.id]));
     setStatusMsg(`'${item.title.substring(0, 16)}...' 스트리밍 추가됨!`);
     setTimeout(() => setStatusMsg(''), 2500);
+  };
+
+  // Handle Google Drive Sync or Single/Multiple File Import
+  const handleGdriveSubmit = async (e?: React.FormEvent, customUrl?: string) => {
+    if (e) e.preventDefault();
+    setGdriveError('');
+    const input = (customUrl || gdriveInput).trim();
+    if (!input) return;
+
+    setIsSyncingGdrive(true);
+
+    try {
+      // Split input by newlines in case user pasted multiple links
+      const lines = input.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+      let importedCount = 0;
+
+      for (const line of lines) {
+        const res = await fetch('/api/gdrive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: line }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || '구글 드라이브 파일/폴더를 읽어오지 못했습니다.');
+        }
+
+        if (data.type === 'folder' && Array.isArray(data.tracks)) {
+          // Folder imported
+          for (const t of data.tracks) {
+            await addTrack(t);
+            importedCount++;
+          }
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('miml_gdrive_folder', line);
+            setSavedFolderUrl(line);
+          }
+        } else if (data.track) {
+          // Single file imported
+          await addTrack(data.track);
+          importedCount++;
+        }
+      }
+
+      setGdriveInput('');
+      setStatusMsg(`🎉 구글 드라이브에서 ${importedCount}곡을 불러왔습니다! (폰 용량 0MB)`);
+      setTimeout(() => {
+        setStatusMsg('');
+        onClose();
+      }, 1400);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('GDrive import error:', msg);
+      setGdriveError(msg);
+    } finally {
+      setIsSyncingGdrive(false);
+    }
   };
 
   // Add Track from Direct YouTube Link
@@ -332,11 +421,11 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </button>
           </div>
 
-          {/* Tab Selector: YouTube Search vs Local Files vs Direct Link */}
-          <div className="flex rounded-2xl bg-[#F0E8FA]/70 p-1 mb-3">
+          {/* Tab Selector: YouTube Search vs Google Drive vs Local Files vs Direct Link */}
+          <div className="flex rounded-2xl bg-[#F0E8FA]/70 p-1 mb-3 gap-0.5 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setTab('search')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
                 tab === 'search'
                   ? 'bg-white text-[#664F91] shadow-xs'
                   : 'text-[#756B87] hover:text-[#473D5C]'
@@ -346,8 +435,19 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
               <span>유튜브 검색</span>
             </button>
             <button
+              onClick={() => setTab('gdrive')}
+              className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
+                tab === 'gdrive'
+                  ? 'bg-white text-[#664F91] shadow-xs'
+                  : 'text-[#756B87] hover:text-[#473D5C]'
+              }`}
+            >
+              <Cloud className="w-3.5 h-3.5" />
+              <span>구글 드라이브</span>
+            </button>
+            <button
               onClick={() => setTab('upload')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
                 tab === 'upload'
                   ? 'bg-white text-[#664F91] shadow-xs'
                   : 'text-[#756B87] hover:text-[#473D5C]'
@@ -358,7 +458,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </button>
             <button
               onClick={() => setTab('link')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
                 tab === 'link'
                   ? 'bg-white text-[#664F91] shadow-xs'
                   : 'text-[#756B87] hover:text-[#473D5C]'
@@ -527,7 +627,106 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </>
           )}
 
-          {/* Tab 2: Bulk Local File Upload (100% Native Background Playback) */}
+          {/* Tab 2: Google Drive Cloud Streaming (Phone storage 0MB!) */}
+          {tab === 'gdrive' && (
+            <div className="space-y-4 py-2">
+              {/* Feature Benefit Card */}
+              <div className="bg-white/90 border border-[#EBE5F5] rounded-2xl p-4 text-xs text-[#756B87] space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-[#F0E8FA] text-[#664F91] flex items-center justify-center flex-shrink-0">
+                    <Cloud className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#473D5C] text-xs">
+                      휴대폰 용량 0MB 클라우드 스트리밍
+                    </p>
+                    <p className="text-[11px] text-[#756B87]">
+                      파일을 다운받지 않고 구글 드라이브에서 실시간 재생 (잠금화면 100% 무중단)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Saved Folder Quick Sync (if previously saved) */}
+              {savedFolderUrl && (
+                <div className="p-3 bg-[#F0E8FA]/70 border border-[#DED1F2] rounded-2xl flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-[#664F91] flex items-center gap-1">
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>연동된 구글 드라이브 폴더</span>
+                    </p>
+                    <p className="text-[10px] text-[#756B87] truncate mt-0.5">
+                      {savedFolderUrl}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleGdriveSubmit(undefined, savedFolderUrl)}
+                    disabled={isSyncingGdrive}
+                    className="px-3 py-1.5 rounded-xl bg-[#664F91] text-white text-[11px] font-semibold flex items-center gap-1 hover:bg-[#584180] active:scale-95 transition-all disabled:opacity-50 flex-shrink-0"
+                  >
+                    {isSyncingGdrive ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
+                    <span>새 음악 동기화</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Google Drive Link Input Form */}
+              <form onSubmit={handleGdriveSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#756B87] mb-1.5">
+                    구글 드라이브 파일 또는 폴더 공유 링크
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="https://drive.google.com/file/d/... 또는 https://drive.google.com/drive/folders/..."
+                    value={gdriveInput}
+                    onChange={(e) => {
+                      setGdriveInput(e.target.value);
+                      setGdriveError('');
+                    }}
+                    className="w-full p-3 text-xs rounded-xl bg-white border border-[#EBE5F5] focus:outline-none focus:border-[#664F91] focus:ring-1 focus:ring-[#664F91] text-[#473D5C] placeholder-[#8E869F] resize-none"
+                  />
+                  {gdriveError && (
+                    <p className="text-xs text-rose-500 mt-1.5">{gdriveError}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSyncingGdrive || !gdriveInput.trim()}
+                  className="w-full py-2.5 rounded-xl bg-[#664F91] text-white text-xs font-semibold active:scale-98 hover:bg-[#584180] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-xs"
+                >
+                  {isSyncingGdrive ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>드라이브 음악 불러오는 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud className="w-4 h-4" />
+                      <span>보관함에 드라이브 음악 추가</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Instructions Guide */}
+              <div className="bg-white/80 border border-[#EBE5F5] rounded-2xl p-4 text-[11px] text-[#756B87] space-y-2 leading-relaxed">
+                <p className="font-bold text-[#473D5C] text-xs">📖 쉬운 설정 가이드</p>
+                <p>
+                  1. 구글 드라이브에서 공유할 음악 파일이나 폴더의 [공유]를 누릅니다.<br />
+                  2. <strong>'링크가 있는 모든 사용자에게 공개'</strong>로 설정한 뒤 링크를 복사합니다.<br />
+                  3. 위 입력창에 붙여넣으시면 <strong>폰 저장 용량 0MB</strong>로 실시간 스트리밍 재생됩니다.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Bulk Local File Upload (100% Native Background Playback) */}
           {tab === 'upload' && (
             <div className="space-y-4 py-2">
               <div
@@ -551,13 +750,13 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                   <span>진짜 100% 무중단 백그라운드 재생</span>
                 </p>
                 <p>
-                  아이폰 파일 앱에 있는 음원을 담으시면, <strong>화면을 끄거나 홈으로 나가도 1초도 안 멈추는 순정 백그라운드 재생</strong>이 가능합니다. (아이폰 내부에 안전하게 오프라인 저장되어 데이터도 소모되지 않습니다.)
+                  아이폰 파일 앱에 있는 음원을 담으시면, <strong>화면을 끄거나 홈으로 나가도 1초도 안 멈추는 순정 백그라운드 재생</strong>이 가능합니다. (오프라인에서도 데이터 없이 재생됩니다.)
                 </p>
               </div>
             </div>
           )}
 
-          {/* Tab 3: Direct Link */}
+          {/* Tab 4: Direct YouTube Link */}
           {tab === 'link' && (
             <form onSubmit={handleDirectLinkSubmit} className="space-y-4 py-2">
               <div>
