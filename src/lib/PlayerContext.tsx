@@ -278,6 +278,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
 
       let url: string | undefined = track.audioUrl;
+      // Auto-rewrite any raw Google Drive URLs to our same-origin streaming proxy
+      if (url && (url.includes('drive.google.com') || url.includes('drive.usercontent.google.com'))) {
+        const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch) {
+          url = `/api/gdrive/stream?id=${idMatch[1]}`;
+        }
+      }
       if (!url) {
         const blob = await getTrackBlob(track.id);
         if (blob) {
