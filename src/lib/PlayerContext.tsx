@@ -1,8 +1,23 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { Track, Playlist, RepeatMode } from './types';
-import { getStoredTracks, getStoredPlaylists, getTrackBlob, saveTrack, deleteTrack as dbDeleteTrack, savePlaylist, deletePlaylist as dbDeletePlaylist } from './db';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
+import { Track, Playlist, RepeatMode } from "./types";
+import {
+  getStoredTracks,
+  getStoredPlaylists,
+  getTrackBlob,
+  saveTrack,
+  deleteTrack as dbDeleteTrack,
+  savePlaylist,
+  deletePlaylist as dbDeletePlaylist,
+} from "./db";
 
 interface PlayerContextType {
   tracks: Track[];
@@ -29,7 +44,10 @@ interface PlayerContextType {
   createPlaylist: (name: string) => Promise<Playlist>;
   removePlaylist: (id: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, trackId: string) => Promise<void>;
-  removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    trackId: string,
+  ) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -46,14 +64,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [currentPlaylistId, setCurrentPlaylistId] = useState<string | null>(null);
+  const [currentPlaylistId, setCurrentPlaylistId] = useState<string | null>(
+    null,
+  );
   const [queue, setQueue] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isShuffle, setIsShuffle] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentBlobUrlRef = useRef<string | null>(null);
@@ -84,12 +104,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize YouTube Player
   const initYouTubePlayer = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (window.YT && window.YT.Player && !ytPlayerRef.current) {
       try {
-        ytPlayerRef.current = new window.YT.Player('yt-player-container', {
-          height: '100%',
-          width: '100%',
+        ytPlayerRef.current = new window.YT.Player("yt-player-container", {
+          height: "100%",
+          width: "100%",
           playerVars: {
             autoplay: 1,
             controls: 0,
@@ -107,13 +127,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               // 1: PLAYING, 2: PAUSED, 0: ENDED
               if (event.data === 1) {
                 setIsPlaying(true);
-                if ('mediaSession' in navigator) {
-                  navigator.mediaSession.playbackState = 'playing';
+                if ("mediaSession" in navigator) {
+                  navigator.mediaSession.playbackState = "playing";
                 }
               } else if (event.data === 2) {
                 setIsPlaying(false);
-                if ('mediaSession' in navigator) {
-                  navigator.mediaSession.playbackState = 'paused';
+                if ("mediaSession" in navigator) {
+                  navigator.mediaSession.playbackState = "paused";
                 }
               } else if (event.data === 0) {
                 handleTrackEndedRef.current();
@@ -122,7 +142,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           },
         });
       } catch (e) {
-        console.warn('YouTube player init failed:', e);
+        console.warn("YouTube player init failed:", e);
       }
     }
   }, []);
@@ -145,12 +165,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // Polling playback time for YouTube Player
   useEffect(() => {
-    if (currentTrack?.source === 'youtube' && isPlaying) {
+    if (currentTrack?.source === "youtube" && isPlaying) {
       ytPollTimerRef.current = setInterval(() => {
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+        if (
+          ytPlayerRef.current &&
+          typeof ytPlayerRef.current.getCurrentTime === "function"
+        ) {
           try {
             const t = ytPlayerRef.current.getCurrentTime() || 0;
-            const d = ytPlayerRef.current.getDuration() || currentTrack.duration || 0;
+            const d =
+              ytPlayerRef.current.getDuration() || currentTrack.duration || 0;
             setCurrentTime(t);
             if (d > 0) setDuration(d);
           } catch {}
@@ -171,7 +195,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // Initialize Native Audio Element (for uploads / local audio files)
   useEffect(() => {
     const audio = new Audio();
-    audio.preload = 'auto';
+    audio.preload = "auto";
     audioRef.current = audio;
 
     const onTimeUpdate = () => {
@@ -198,15 +222,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const onPlay = () => {
       setIsPlaying(true);
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'playing';
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
       }
     };
 
     const onPause = () => {
       setIsPlaying(false);
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'paused';
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "paused";
       }
     };
 
@@ -219,19 +243,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       console.warn('Native audio error:', e);
     };
 
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('loadedmetadata', onLoadedMetadata);
-    audio.addEventListener('play', onPlay);
-    audio.addEventListener('pause', onPause);
-    audio.addEventListener('ended', onEnded);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onEnded);
     audio.addEventListener('error', onError);
 
     return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-      audio.removeEventListener('play', onPlay);
-      audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onEnded);
       audio.removeEventListener('error', onError);
       audio.pause();
       if (currentBlobUrlRef.current) {
@@ -246,9 +270,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const loadedPlaylists = await getStoredPlaylists();
 
     let hasChanges = false;
-    loadedTracks = loadedTracks.map(t => {
-      if (t.audioUrl && (t.audioUrl.includes('drive.google.com') || t.audioUrl.includes('drive.usercontent.google.com'))) {
-        const idMatch = t.audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) || t.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    loadedTracks = loadedTracks.map((t) => {
+      if (
+        t.audioUrl &&
+        (t.audioUrl.includes("drive.google.com") ||
+          t.audioUrl.includes("drive.usercontent.google.com"))
+      ) {
+        const idMatch =
+          t.audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+          t.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (idMatch) {
           hasChanges = true;
           return {
@@ -280,10 +310,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (currentPlaylistId === null) {
       list = tracks;
     } else {
-      const pl = playlists.find(p => p.id === currentPlaylistId);
+      const pl = playlists.find((p) => p.id === currentPlaylistId);
       if (pl) {
         const idSet = new Set(pl.trackIds);
-        list = tracks.filter(t => idSet.has(t.id));
+        list = tracks.filter((t) => idSet.has(t.id));
       }
     }
     setQueue(list);
@@ -301,73 +331,83 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setCurrentTime(0);
     setDuration(track.duration || 0);
 
-    // 1. YouTube Track
-    if (track.source === 'youtube') {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-
-      const videoId = track.id.replace('yt_', '');
-      
-      const playYt = () => {
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
-          ytPlayerRef.current.loadVideoById(videoId);
-          ytPlayerRef.current.playVideo();
-          setIsPlaying(true);
+      // 1. YouTube Track
+      if (track.source === "youtube") {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
         }
-      };
 
-      if (ytReadyRef.current) {
-        playYt();
+        const videoId = track.id.replace("yt_", "");
+
+        const playYt = () => {
+          if (
+            ytPlayerRef.current &&
+            typeof ytPlayerRef.current.loadVideoById === "function"
+          ) {
+            ytPlayerRef.current.loadVideoById(videoId);
+            ytPlayerRef.current.playVideo();
+            setIsPlaying(true);
+          }
+        };
+
+        if (ytReadyRef.current) {
+          playYt();
+        } else {
+          initYouTubePlayer();
+          setTimeout(playYt, 800);
+        }
       } else {
-        initYouTubePlayer();
-        setTimeout(playYt, 800);
-      }
-    } else {
-      // 2. Local File / Cloud Stream Track
+        // 2. Local File / Cloud Stream Track
       if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === 'function') {
         ytPlayerRef.current.pauseVideo();
       }
 
-      const audio = audioRef.current;
-      if (!audio) return;
+        const audio = audioRef.current;
+        if (!audio) return;
 
-      if (currentBlobUrlRef.current) {
-        URL.revokeObjectURL(currentBlobUrlRef.current);
-        currentBlobUrlRef.current = null;
-      }
-
-      let url: string | undefined = track.audioUrl;
-      // Auto-rewrite any raw Google Drive URLs to our same-origin streaming proxy
-      if (url && (url.includes('drive.google.com') || url.includes('drive.usercontent.google.com'))) {
-        const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-        if (idMatch) {
-          url = `/api/gdrive/stream?id=${idMatch[1]}`;
+        if (currentBlobUrlRef.current) {
+          URL.revokeObjectURL(currentBlobUrlRef.current);
+          currentBlobUrlRef.current = null;
         }
-      }
-      if (!url) {
-        const blob = await getTrackBlob(track.id);
-        if (blob) {
-          url = URL.createObjectURL(blob);
-          currentBlobUrlRef.current = url;
+
+        let url: string | undefined = track.audioUrl;
+        // Auto-rewrite any raw Google Drive URLs to our same-origin streaming proxy
+        if (
+          url &&
+          (url.includes("drive.google.com") ||
+            url.includes("drive.usercontent.google.com"))
+        ) {
+          const idMatch =
+            url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+            url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+          if (idMatch) {
+            url = `/api/gdrive/stream?id=${idMatch[1]}`;
+          }
         }
-      }
+        if (!url) {
+          const blob = await getTrackBlob(track.id);
+          if (blob) {
+            url = URL.createObjectURL(blob);
+            currentBlobUrlRef.current = url;
+          }
+        }
 
-      if (!url) {
-        console.error('No audio source found for track:', track.title);
-        return;
-      }
+        if (!url) {
+          console.error("No audio source found for track:", track.title);
+          return;
+        }
 
-      audio.src = url;
-      audio.volume = 1;
-      audio.muted = false;
-      audio.load();
-      try {
-        await audio.play();
-        setIsPlaying(true);
-      } catch (err) {
-        console.warn('Audio play error:', err);
+        audio.src = url;
+        audio.volume = 1;
+        audio.muted = false;
+        audio.load();
+        try {
+          await audio.play();
+          setIsPlaying(true);
+        } catch (err) {
+          console.warn("Audio play error:", err);
+        }
       }
 
       // Pre-warm the next track's serverless cache in the background for zero-gap seamless transition
@@ -379,7 +419,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           fetch(nextT.audioUrl, { method: 'HEAD' }).catch(() => {});
         }
       }
-    }
 
     // MediaSession API setup (Lock Screen, Dynamic Island, Apple Watch)
     if ('mediaSession' in navigator) {
@@ -515,7 +554,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // MediaSession Action Handlers (Registered ONCE with refs for 100% stable lock screen control)
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
+    if (!("mediaSession" in navigator)) return;
 
     navigator.mediaSession.setActionHandler('play', () => togglePlayRef.current());
     navigator.mediaSession.setActionHandler('pause', () => togglePlayRef.current());
@@ -528,22 +567,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      if (!('mediaSession' in navigator)) return;
-      navigator.mediaSession.setActionHandler('play', null);
-      navigator.mediaSession.setActionHandler('pause', null);
-      navigator.mediaSession.setActionHandler('previoustrack', null);
-      navigator.mediaSession.setActionHandler('nexttrack', null);
-      navigator.mediaSession.setActionHandler('seekto', null);
+      if (!("mediaSession" in navigator)) return;
+      navigator.mediaSession.setActionHandler("play", null);
+      navigator.mediaSession.setActionHandler("pause", null);
+      navigator.mediaSession.setActionHandler("previoustrack", null);
+      navigator.mediaSession.setActionHandler("nexttrack", null);
+      navigator.mediaSession.setActionHandler("seekto", null);
     };
   }, []);
 
   // Toggles
-  const toggleShuffle = () => setIsShuffle(prev => !prev);
+  const toggleShuffle = () => setIsShuffle((prev) => !prev);
   const cycleRepeatMode = () => {
-    setRepeatMode(prev => {
-      if (prev === 'all') return 'one';
-      if (prev === 'one') return 'off';
-      return 'all';
+    setRepeatMode((prev) => {
+      if (prev === "all") return "one";
+      if (prev === "one") return "off";
+      return "all";
     });
   };
 
@@ -557,9 +596,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (currentTrack?.id === trackId) {
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.src = "";
       }
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === 'function') {
+      if (
+        ytPlayerRef.current &&
+        typeof ytPlayerRef.current.pauseVideo === "function"
+      ) {
         ytPlayerRef.current.pauseVideo();
       }
       setIsPlaying(false);
@@ -571,7 +613,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const createPlaylist = async (name: string): Promise<Playlist> => {
     const newPl: Playlist = {
-      id: 'pl_' + Date.now(),
+      id: "pl_" + Date.now(),
       name,
       trackIds: [],
       createdAt: Date.now(),
@@ -590,7 +632,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTrackToPlaylist = async (playlistId: string, trackId: string) => {
-    const pl = playlists.find(p => p.id === playlistId);
+    const pl = playlists.find((p) => p.id === playlistId);
     if (!pl) return;
     if (!pl.trackIds.includes(trackId)) {
       const updated: Playlist = {
@@ -602,12 +644,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const removeTrackFromPlaylist = async (playlistId: string, trackId: string) => {
-    const pl = playlists.find(p => p.id === playlistId);
+  const removeTrackFromPlaylist = async (
+    playlistId: string,
+    trackId: string,
+  ) => {
+    const pl = playlists.find((p) => p.id === playlistId);
     if (!pl) return;
     const updated: Playlist = {
       ...pl,
-      trackIds: pl.trackIds.filter(id => id !== trackId),
+      trackIds: pl.trackIds.filter((id) => id !== trackId),
     };
     await savePlaylist(updated);
     await refreshData();
@@ -647,7 +692,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       {/* YouTube Player Container (Inline Player with Picture-in-Picture & PlaysInline) */}
       <div
         style={{
-          position: 'fixed',
+          position: "fixed",
           bottom: 74,
           right: 12,
           width: 140,
@@ -660,7 +705,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           display: currentTrack?.source === 'youtube' ? 'block' : 'none',
         }}
       >
-        <div id="yt-player-container" style={{ width: '100%', height: '100%' }} />
+        <div
+          id="yt-player-container"
+          style={{ width: "100%", height: "100%" }}
+        />
       </div>
       {children}
     </PlayerContext.Provider>
