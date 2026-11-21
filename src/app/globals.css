@@ -31,18 +31,29 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-::-webkit-scrollbar-thumb {
-  background: #DED1F2;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #664F91;
+
+/* Custom Scrollbars for desktop */
+@media (min-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #DED1F2;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #664F91;
+  }
 }
