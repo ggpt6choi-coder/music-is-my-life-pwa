@@ -203,10 +203,32 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Load Initial Data
+  // Load Initial Data & Migrate Legacy Track URLs
   const refreshData = useCallback(async () => {
-    const loadedTracks = await getStoredTracks();
+    let loadedTracks = await getStoredTracks();
     const loadedPlaylists = await getStoredPlaylists();
+
+    let hasChanges = false;
+    loadedTracks = loadedTracks.map(t => {
+      if (t.audioUrl && (t.audioUrl.includes('drive.google.com') || t.audioUrl.includes('drive.usercontent.google.com'))) {
+        const idMatch = t.audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) || t.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch) {
+          hasChanges = true;
+          return {
+            ...t,
+            audioUrl: `/api/gdrive/stream?id=${idMatch[1]}`,
+          };
+        }
+      }
+      return t;
+    });
+
+    if (hasChanges) {
+      for (const t of loadedTracks) {
+        await saveTrack(t);
+      }
+    }
+
     setTracks(loadedTracks);
     setPlaylists(loadedPlaylists);
   }, []);
@@ -301,6 +323,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       audio.src = url;
       audio.volume = 1;
       audio.muted = false;
+      audio.load();
       try {
         await audio.play();
         setIsPlaying(true);

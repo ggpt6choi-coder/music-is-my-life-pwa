@@ -1,4 +1,4 @@
-const CACHE_NAME = 'music-is-my-life-v1';
+const CACHE_NAME = 'music-is-my-life-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -32,27 +32,49 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests for navigation and static assets
+  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // Don't intercept API routes or external streams
+  // Never intercept API routes or cross-origin streams
   if (url.pathname.startsWith('/api/') || url.origin !== self.location.origin) {
     return;
   }
 
+  // Network-First for navigation (HTML page load) to ensure fresh updates
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, copy);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match('/') as Promise<Response>;
+        })
+    );
+    return;
+  }
+
+  // Cache-First with background revalidation for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Fetch fresh copy in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {});
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, networkResponse);
+              });
+            }
+          })
+          .catch(() => {});
         return cachedResponse;
       }
 
@@ -67,11 +89,6 @@ self.addEventListener('fetch', (event) => {
         });
 
         return networkResponse;
-      }).catch(() => {
-        // Fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
       });
     })
   );
