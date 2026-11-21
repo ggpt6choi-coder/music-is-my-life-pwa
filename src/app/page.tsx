@@ -8,12 +8,14 @@ import { TrackCard } from '@/components/TrackCard';
 import { PlayerBar } from '@/components/PlayerBar';
 import { AddMusicModal } from '@/components/AddMusicModal';
 import { PlaylistModal } from '@/components/PlaylistModal';
-import { Music, Plus } from 'lucide-react';
+import { ManagePlaylistTracksModal } from '@/components/ManagePlaylistTracksModal';
+import { Music, Plus, ListPlus } from 'lucide-react';
 
 export default function Home() {
   const { tracks, playlists, currentPlaylistId, searchQuery } = usePlayer();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [manageTracksOpen, setManageTracksOpen] = useState(false);
 
   // Filter tracks by active playlist
   let currentList = tracks;
@@ -58,14 +60,17 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#FAF8F5]">
       {/* Top Fixed Header */}
-      <Header onOpenAddModal={() => setAddModalOpen(true)} />
+      <Header
+        onOpenAddModal={() => setAddModalOpen(true)}
+        onOpenManagePlaylist={() => setManageTracksOpen(true)}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-3 space-y-3">
         {/* Playlist Selector: Left (+ 새 플레이리스트), Right (Select Dropdown) */}
         <PlaylistSelector onCreatePlaylist={() => setPlaylistModalOpen(true)} />
 
-        {/* Section Title & Track Count */}
+        {/* Section Title & Track Count & Playlist Manage Button */}
         <div className="flex items-center justify-between pt-1 px-1">
           <div>
             <h2 className="text-base font-bold text-[#473D5C] tracking-tight">
@@ -75,6 +80,17 @@ export default function Home() {
               {searchQuery ? `검색 결과 ${currentList.length}곡` : `총 ${currentList.length}곡`}
             </p>
           </div>
+
+          {/* If inside a playlist: Add/Manage Tracks Button */}
+          {currentPlaylistId && (
+            <button
+              onClick={() => setManageTracksOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F0E8FA] hover:bg-[#664F91] hover:text-white text-[#664F91] text-xs font-semibold active:scale-95 transition-all shadow-2xs"
+            >
+              <ListPlus className="w-3.5 h-3.5" />
+              <span>곡 담기 / 관리</span>
+            </button>
+          )}
         </div>
 
         {/* Tracks List */}
@@ -91,20 +107,30 @@ export default function Home() {
               <Music className="w-7 h-7" />
             </div>
             <h3 className="font-bold text-base text-[#473D5C] mb-1">
-              {searchQuery ? '검색 결과가 없습니다' : '보관함이 비어있습니다'}
+              {searchQuery
+                ? '검색 결과가 없습니다'
+                : currentPlaylistId
+                ? '플레이리스트가 비어있습니다'
+                : '보관함이 비어있습니다'}
             </h3>
             <p className="text-xs text-[#756B87] mb-6 leading-relaxed">
               {searchQuery
                 ? '다른 검색어로 검색해보세요.'
-                : '듣고 싶은 노래를 유튜브나 구글 드라이브에서 추가해보세요.'}
+                : currentPlaylistId
+                ? '전체 음악 보관함에서 원하는 곡을 담아보세요.'
+                : '구글 드라이브에서 음악을 추가해보세요.'}
             </p>
             {!searchQuery && (
               <button
-                onClick={() => setAddModalOpen(true)}
+                onClick={() =>
+                  currentPlaylistId ? setManageTracksOpen(true) : setAddModalOpen(true)
+                }
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#664F91] text-white text-xs font-semibold shadow-sm active:scale-95 hover:bg-[#584180] transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>음악 추가하기</span>
+                <span>
+                  {currentPlaylistId ? '전체 음악에서 곡 담기' : '음악 추가하기'}
+                </span>
               </button>
             )}
           </div>
@@ -122,6 +148,11 @@ export default function Home() {
       <PlaylistModal
         isOpen={playlistModalOpen}
         onClose={() => setPlaylistModalOpen(false)}
+      />
+      <ManagePlaylistTracksModal
+        isOpen={manageTracksOpen}
+        onClose={() => setManageTracksOpen(false)}
+        playlistId={currentPlaylistId}
       />
     </div>
   );

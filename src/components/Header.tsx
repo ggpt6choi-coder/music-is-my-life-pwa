@@ -6,10 +6,12 @@ import { Music, Search, Plus, X } from 'lucide-react';
 
 interface HeaderProps {
   onOpenAddModal: () => void;
+  onOpenManagePlaylist?: () => void;
 }
 
-export function Header({ onOpenAddModal }: HeaderProps) {
-  const { searchQuery, setSearchQuery } = usePlayer();
+export function Header({ onOpenAddModal, onOpenManagePlaylist }: HeaderProps) {
+  const { searchQuery, setSearchQuery, currentPlaylistId } = usePlayer();
+  const isPlaylist = currentPlaylistId !== null;
 
   return (
     <header className="sticky top-0 z-20 bg-[#FAF8F5]/90 backdrop-blur-md px-4 pt-3 pb-3 border-b border-[#EBE5F5]">
@@ -44,13 +46,13 @@ export function Header({ onOpenAddModal }: HeaderProps) {
           )}
         </div>
 
-        {/* Add Music Button */}
+        {/* Add Music or Manage Playlist Button */}
         <button
-          onClick={onOpenAddModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#664F91] text-white text-sm font-medium shadow-sm active:scale-95 hover:bg-[#584180] transition-all flex-shrink-0"
+          onClick={isPlaylist ? onOpenManagePlaylist : onOpenAddModal}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#664F91] text-white text-xs sm:text-sm font-semibold shadow-xs active:scale-95 hover:bg-[#584180] transition-all flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>음악 추가</span>
+          <span>{isPlaylist ? '곡 담기' : '음악 추가'}</span>
         </button>
       </div>
     </header>

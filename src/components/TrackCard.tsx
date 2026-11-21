@@ -28,6 +28,9 @@ export function TrackCard({ track }: TrackCardProps) {
 
   const isCurrent = currentTrack?.id === track.id;
 
+  // Playlists this track belongs to
+  const trackPlaylists = playlists.filter(pl => pl.trackIds.includes(track.id));
+
   // Close menu on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -83,14 +86,24 @@ export function TrackCard({ track }: TrackCardProps) {
           )}
         </div>
 
-        {/* Title & Artist */}
+        {/* Title & Artist & Tags */}
         <div className="min-w-0 flex-1 pr-2">
           <p className="font-semibold text-sm text-[#473D5C] truncate">
             {track.title}
           </p>
-          <p className="text-xs text-[#756B87] truncate mt-0.5">
-            {track.artist || '알 수 없는 아티스트'}
-          </p>
+          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+            <span className="text-xs text-[#756B87] truncate">
+              {track.artist || 'Google Drive'}
+            </span>
+            {trackPlaylists.map(pl => (
+              <span
+                key={pl.id}
+                className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#F0E8FA] text-[#664F91] font-medium"
+              >
+                🏷️ {pl.name}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
