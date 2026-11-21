@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
         if (folderRes.ok) {
           const html = await folderRes.text();
 
-          // Check if Google redirected to sign-in page
-          if (html.includes('Google Drive: Sign-in') || html.includes('accounts.google.com/ServiceLogin')) {
+          // Check if Google returned Sign-in title (meaning restricted access)
+          if (html.includes('<title>Google Drive: Sign-in') || html.includes('<title>Google Drive – 로그인')) {
             return NextResponse.json(
               {
                 error:
