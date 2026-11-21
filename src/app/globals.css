@@ -12,14 +12,42 @@
   --muted: #756B87;
 }
 
-body {
+/* Native App-like Non-zoomable & Non-draggable Environment */
+html, body {
   background-color: var(--canvas);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  -webkit-user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
   overscroll-behavior-y: none;
+  -webkit-overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  height: 100%;
+}
+
+/* Prevent image & element dragging */
+img, a {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text editing inside inputs */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Prevent iOS Safari auto-zoom on input focus (forces 16px font-size) */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* iOS Safe Area Padding */

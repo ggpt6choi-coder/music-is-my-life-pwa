@@ -22,6 +22,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  minimumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
   themeColor: '#FAF8F5',
@@ -38,13 +39,42 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body className="min-h-screen bg-[#FAF8F5] text-[#473D5C] antialiased flex flex-col justify-between">
         <PlayerProvider>
           {children}
         </PlayerProvider>
-        <Script id="register-sw" strategy="afterInteractive">
+        
+        {/* Anti-zoom & Anti-gesture Script for iOS App-like Experience */}
+        <Script id="prevent-zoom" strategy="afterInteractive">
           {`
+            // Prevent pinch-to-zoom gestures
+            document.addEventListener('gesturestart', function(e) {
+              e.preventDefault();
+            }, { passive: false });
+            document.addEventListener('gesturechange', function(e) {
+              e.preventDefault();
+            }, { passive: false });
+            document.addEventListener('gestureend', function(e) {
+              e.preventDefault();
+            }, { passive: false });
+
+            // Prevent double-tap to zoom
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(event) {
+              const now = Date.now();
+              if (now - lastTouchEnd <= 300) {
+                // If it's not inside an input
+                if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+                  event.preventDefault();
+                }
+              }
+              lastTouchEnd = now;
+            }, { passive: false });
+
+            // Service worker registration
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').then(
