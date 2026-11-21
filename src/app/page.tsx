@@ -3,12 +3,12 @@
 import React, { useState } from 'react';
 import { usePlayer } from '@/lib/PlayerContext';
 import { Header } from '@/components/Header';
-import { PlaylistTabs } from '@/components/PlaylistTabs';
+import { PlaylistSelector } from '@/components/PlaylistSelector';
 import { TrackCard } from '@/components/TrackCard';
 import { PlayerBar } from '@/components/PlayerBar';
 import { AddMusicModal } from '@/components/AddMusicModal';
 import { PlaylistModal } from '@/components/PlaylistModal';
-import { Music, Plus, Sparkles, Share, Smartphone } from 'lucide-react';
+import { Music, Plus, Share, Smartphone } from 'lucide-react';
 
 export default function Home() {
   const { tracks, playlists, currentPlaylistId, searchQuery } = usePlayer();
@@ -43,7 +43,7 @@ export default function Home() {
       <Header onOpenAddModal={() => setAddModalOpen(true)} />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-4 space-y-4">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-3 space-y-3">
         {/* iOS PWA Install Hint Banner (Dismissible) */}
         {showPwaBanner && (
           <div className="relative bg-[#F0E8FA] border border-[#DED1F2] rounded-2xl p-3.5 flex items-start justify-between gap-3 shadow-xs">
@@ -67,11 +67,11 @@ export default function Home() {
           </div>
         )}
 
-        {/* Playlist Tabs Bar */}
-        <PlaylistTabs onCreatePlaylist={() => setPlaylistModalOpen(true)} />
+        {/* Playlist Selector: Left (+ 새 플레이리스트), Right (Select Dropdown) */}
+        <PlaylistSelector onCreatePlaylist={() => setPlaylistModalOpen(true)} />
 
         {/* Section Title & Track Count */}
-        <div className="flex items-center justify-between pt-2 px-1">
+        <div className="flex items-center justify-between pt-1 px-1">
           <div>
             <h2 className="text-base font-bold text-[#473D5C] tracking-tight">
               {activePlaylistName}
@@ -101,7 +101,7 @@ export default function Home() {
             <p className="text-xs text-[#756B87] mb-6 leading-relaxed">
               {searchQuery
                 ? '다른 검색어로 검색해보세요.'
-                : '소장하고 계신 오디오 파일을 추가하거나, 추천 샘플 음악으로 바로 들어보세요.'}
+                : '듣고 싶은 노래를 유튜브에서 검색하여 추가해보세요.'}
             </p>
             {!searchQuery && (
               <button
