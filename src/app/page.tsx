@@ -28,12 +28,31 @@ export default function Home() {
     }
   }
 
-  // Filter tracks by search query
+  // Filter tracks by search query (Unicode NFC normalized + space/case insensitive)
   if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    currentList = currentList.filter(
-      t => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
-    );
+    const rawQ = searchQuery.normalize('NFC').toLowerCase().trim();
+    const cleanQ = rawQ.replace(/\s+/g, '');
+
+    currentList = currentList.filter(t => {
+      const titleNFC = (t.title || '').normalize('NFC').toLowerCase();
+      const artistNFC = (t.artist || '').normalize('NFC').toLowerCase();
+
+      // 1. Exact substring match
+      if (titleNFC.includes(rawQ) || artistNFC.includes(rawQ)) return true;
+
+      // 2. Whitespace-insensitive match (e.g. "어른이" matches "어른 이" or vice versa)
+      const titleNoSpace = titleNFC.replace(/\s+/g, '');
+      const artistNoSpace = artistNFC.replace(/\s+/g, '');
+      if (titleNoSpace.includes(cleanQ) || artistNoSpace.includes(cleanQ)) return true;
+
+      // 3. Decomposed NFD match fallback (for Apple NFD filenames)
+      const rawNFD = searchQuery.normalize('NFD').toLowerCase().trim();
+      const titleNFD = (t.title || '').normalize('NFD').toLowerCase();
+      const artistNFD = (t.artist || '').normalize('NFD').toLowerCase();
+      if (titleNFD.includes(rawNFD) || artistNFD.includes(rawNFD)) return true;
+
+      return false;
+    });
   }
 
   return (

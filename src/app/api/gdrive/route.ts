@@ -102,10 +102,10 @@ export async function POST(req: NextRequest) {
 
           if (foundFiles.length > 0) {
             const tracks = foundFiles.map((f) => {
-              const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
+              const nameWithoutExt = (f.name || '').normalize('NFC').replace(/\.[^/.]+$/, '');
               const parts = nameWithoutExt.split(' - ');
-              const artist = parts.length > 1 ? parts[0].trim() : 'Google Drive';
-              const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
+              const artist = (parts.length > 1 ? parts[0].trim() : 'Google Drive').normalize('NFC');
+              const title = (parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt).normalize('NFC');
               const streamUrl = `/api/gdrive/stream?id=${f.id}`;
 
               return {
@@ -142,10 +142,10 @@ export async function POST(req: NextRequest) {
 
           if (audioFiles.length > 0) {
             const tracks = audioFiles.map((f: any) => {
-              const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
+              const nameWithoutExt = (f.name || '').normalize('NFC').replace(/\.[^/.]+$/, '');
               const parts = nameWithoutExt.split(' - ');
-              const artist = parts.length > 1 ? parts[0].trim() : 'Google Drive';
-              const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
+              const artist = (parts.length > 1 ? parts[0].trim() : 'Google Drive').normalize('NFC');
+              const title = (parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt).normalize('NFC');
               const streamUrl = `/api/gdrive/stream?id=${f.id}`;
 
               return {

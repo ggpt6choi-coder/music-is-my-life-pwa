@@ -271,6 +271,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     let hasChanges = false;
     loadedTracks = loadedTracks.map((t) => {
+      let updatedTrack = { ...t };
+      if (t.title && t.title !== t.title.normalize('NFC')) {
+        updatedTrack.title = t.title.normalize('NFC');
+        hasChanges = true;
+      }
+      if (t.artist && t.artist !== t.artist.normalize('NFC')) {
+        updatedTrack.artist = t.artist.normalize('NFC');
+        hasChanges = true;
+      }
       if (
         t.audioUrl &&
         (t.audioUrl.includes("drive.google.com") ||
@@ -281,13 +290,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           t.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (idMatch) {
           hasChanges = true;
-          return {
-            ...t,
-            audioUrl: `/api/gdrive/stream?id=${idMatch[1]}`,
-          };
+          updatedTrack.audioUrl = `/api/gdrive/stream?id=${idMatch[1]}`;
         }
       }
-      return t;
+      return updatedTrack;
     });
 
     if (hasChanges) {
