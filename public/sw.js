@@ -1,4 +1,4 @@
-const CACHE_NAME = 'music-is-my-life-v2';
+const CACHE_NAME = 'music-is-my-life-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
