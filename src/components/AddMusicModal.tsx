@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePlayer } from '@/lib/PlayerContext';
-import { X, Search, Link2, Music, Loader2, Check, Plus } from 'lucide-react';
+import { X, Search, Link2, Upload, Music, Loader2, Check, Plus, Sparkles } from 'lucide-react';
 import { Track } from '@/lib/types';
 import { SearchResultItem } from '@/app/api/youtube/search/route';
 
@@ -13,9 +13,13 @@ interface AddMusicModalProps {
 
 export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
   const { addTrack } = usePlayer();
-  const [tab, setTab] = useState<'search' | 'link'>('search');
+  const [tab, setTab] = useState<'upload' | 'search' | 'link'>('upload');
   const [statusMsg, setStatusMsg] = useState('');
   
+  // File Upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // YouTube Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -39,6 +43,55 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Handle local audio file selection (iPhone Files app / iCloud / Downloads)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setStatusMsg(`${files.length}개 파일 보관함에 담는 중...`);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      const parts = nameWithoutExt.split(' - ');
+      const artist = parts.length > 1 ? parts[0].trim() : '보관함 음악';
+      const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
+
+      const duration = await new Promise<number>((resolve) => {
+        const audio = new Audio();
+        const objUrl = URL.createObjectURL(file);
+        audio.src = objUrl;
+        audio.onloadedmetadata = () => {
+          URL.revokeObjectURL(objUrl);
+          resolve(audio.duration || 180);
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          resolve(180);
+        };
+      });
+
+      const newTrack: Track = {
+        id: 'track_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        title,
+        artist,
+        duration,
+        dateAdded: Date.now(),
+        source: 'upload',
+      };
+
+      await addTrack(newTrack, file);
+    }
+
+    setIsUploading(false);
+    setStatusMsg('완료되었습니다! 백그라운드에서 끊김 없이 재생됩니다.');
+    setTimeout(() => {
+      onClose();
+      setStatusMsg('');
+    }, 900);
+  };
 
   // Search YouTube
   const handleYoutubeSearch = async (e?: React.FormEvent) => {
@@ -187,8 +240,19 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </button>
           </div>
 
-          {/* Tab Selector: YouTube Search vs Direct Link */}
+          {/* Tab Selector: File Upload (100% Background) vs YouTube Search vs Direct Link */}
           <div className="flex rounded-2xl bg-[#F0E8FA]/70 p-1 mb-3">
+            <button
+              onClick={() => setTab('upload')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                tab === 'upload'
+                  ? 'bg-white text-[#664F91] shadow-xs'
+                  : 'text-[#756B87] hover:text-[#473D5C]'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>파일 담기 (백그라운드)</span>
+            </button>
             <button
               onClick={() => setTab('search')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
@@ -209,7 +273,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
               }`}
             >
               <Link2 className="w-3.5 h-3.5" />
-              <span>링크 직접 입력</span>
+              <span>링크</span>
             </button>
           </div>
 
@@ -240,7 +304,46 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
 
         {/* Scrollable Content Body */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-2.5 no-scrollbar pb-10">
-          {tab === 'search' ? (
+          {/* Tab 1: File Upload (iPhone Files App / Downloads - 100% Native Background Playback) */}
+          {tab === 'upload' && (
+            <div className="space-y-4 py-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="audio/*,.mp3,.m4a,.wav,.aac,.flac"
+                multiple
+                className="hidden"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-[#DED1F2] bg-white hover:bg-[#F0E8FA]/40 rounded-2xl p-7 text-center cursor-pointer transition-colors group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-[#F0E8FA] text-[#664F91] flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <p className="font-semibold text-sm text-[#473D5C]">
+                  아이폰에서 오디오 파일 선택
+                </p>
+                <p className="text-xs text-[#756B87] mt-1">
+                  아이폰 '파일' 앱, 다운로드 폴더, MP3 / M4A 지원
+                </p>
+              </div>
+
+              <div className="bg-white/80 border border-[#EBE5F5] rounded-2xl p-4 text-xs text-[#756B87] space-y-2 leading-relaxed">
+                <p className="font-bold text-[#473D5C] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#664F91]" />
+                  <span>진짜 100% 무중단 백그라운드 재생</span>
+                </p>
+                <p>
+                  아이폰 파일 앱에 있는 음원을 담으시면, <strong>화면을 끄거나 홈으로 나가도 1초도 안 멈추는 순정 백그라운드 재생</strong>이 가능합니다. (아이폰 내부에 안전하게 오프라인 저장되어 데이터도 소모되지 않습니다.)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: YouTube Search */}
+          {tab === 'search' && (
             isSearching ? (
               <div className="py-16 text-center text-[#8E869F] text-xs flex flex-col items-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-[#664F91]" />
@@ -254,7 +357,6 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                     key={item.id}
                     className="flex items-center justify-between p-2.5 rounded-2xl bg-white border border-[#EBE5F5] hover:border-[#DED1F2] transition-colors gap-3 shadow-2xs"
                   >
-                    {/* Thumbnail */}
                     <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-[#F0E8FA] flex-shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -269,7 +371,6 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                       )}
                     </div>
 
-                    {/* Title & Channel */}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-[#473D5C] line-clamp-1">
                         {item.title}
@@ -279,7 +380,6 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                       </p>
                     </div>
 
-                    {/* Add Button */}
                     <button
                       onClick={() => handleAddYoutubeTrack(item)}
                       className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 ${
@@ -309,8 +409,10 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                 <p className="text-[11px] mt-1 text-[#756B87]">예: 퇴사할게여, 아이유, NewJeans, Lo-fi</p>
               </div>
             )
-          ) : (
-            /* Direct Link Tab Content */
+          )}
+
+          {/* Tab 3: Direct Link */}
+          {tab === 'link' && (
             <form onSubmit={handleDirectLinkSubmit} className="space-y-4 py-2">
               <div>
                 <label className="block text-xs font-semibold text-[#756B87] mb-1.5">
