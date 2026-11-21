@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
               const artist = parts.length > 1 ? parts[0].trim() : 'Google Drive';
               const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
               const fileId = f.id || f.fileId;
-              const streamUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download`;
+              const streamUrl = `/api/gdrive/stream?id=${fileId}`;
 
               return {
                 id: 'gdrive_' + fileId,
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
               const parts = nameWithoutExt.split(' - ');
               const artist = parts.length > 1 ? parts[0].trim() : 'Google Drive';
               const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
-              const streamUrl = `https://drive.usercontent.google.com/download?id=${f.id}&export=download`;
+              const streamUrl = `/api/gdrive/stream?id=${f.id}`;
 
               return {
                 id: 'gdrive_' + f.id,
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
               const parts = nameWithoutExt.split(' - ');
               const artist = parts.length > 1 ? parts[0].trim() : 'Google Drive';
               const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : nameWithoutExt;
-              const streamUrl = `https://drive.usercontent.google.com/download?id=${f.id}&export=download`;
+              const streamUrl = `/api/gdrive/stream?id=${f.id}`;
 
               return {
                 id: 'gdrive_' + f.id,
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const streamUrl = `https://drive.usercontent.google.com/download?id=${fileId}&export=download`;
+    const streamUrl = `/api/gdrive/stream?id=${fileId}`;
 
     return NextResponse.json({
       track: {

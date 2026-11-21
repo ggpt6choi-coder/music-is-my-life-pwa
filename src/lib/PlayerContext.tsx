@@ -292,6 +292,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
 
       audio.src = url;
+      audio.volume = 1;
+      audio.muted = false;
       try {
         await audio.play();
         setIsPlaying(true);
