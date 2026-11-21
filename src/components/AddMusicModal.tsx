@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { usePlayer } from '@/lib/PlayerContext';
-import { X, Search, Link2, Upload, Music, Loader2, Check, Plus, Sparkles } from 'lucide-react';
+import { X, Search, Link2, Upload, Music, Loader2, Check, Plus, Sparkles, Download, ExternalLink, Headphones, FileAudio } from 'lucide-react';
 import { Track } from '@/lib/types';
 import { SearchResultItem } from '@/app/api/youtube/search/route';
 
@@ -11,14 +11,25 @@ interface AddMusicModalProps {
   onClose: () => void;
 }
 
+interface PendingTrackMeta {
+  title: string;
+  artist: string;
+  thumbnail?: string;
+  duration: number;
+}
+
 export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
   const { addTrack } = usePlayer();
-  const [tab, setTab] = useState<'upload' | 'search' | 'link'>('upload');
+  const [tab, setTab] = useState<'search' | 'upload' | 'link'>('search');
   const [statusMsg, setStatusMsg] = useState('');
   
-  // File Upload state
+  // File Upload state (Bulk)
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Single Track Download ➔ Import state
+  const singleFileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingTrack, setPendingTrack] = useState<PendingTrackMeta | null>(null);
 
   // YouTube Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,8 +55,8 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
 
   if (!isOpen) return null;
 
-  // Handle local audio file selection (iPhone Files app / iCloud / Downloads)
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Bulk Local Audio Files Selection (iPhone Files / Downloads)
+  const handleBulkFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -90,7 +101,71 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
     setTimeout(() => {
       onClose();
       setStatusMsg('');
-    }, 900);
+    }, 1000);
+  };
+
+  // Single Track Import paired with Pending YouTube Search Metadata
+  const handleSingleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !pendingTrack) return;
+
+    const file = files[0];
+    setIsUploading(true);
+    setStatusMsg(`'${pendingTrack.title.substring(0, 15)}...' 보관함 저장 중...`);
+
+    const duration = await new Promise<number>((resolve) => {
+      const audio = new Audio();
+      const objUrl = URL.createObjectURL(file);
+      audio.src = objUrl;
+      audio.onloadedmetadata = () => {
+        URL.revokeObjectURL(objUrl);
+        resolve(audio.duration || pendingTrack.duration || 180);
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(objUrl);
+        resolve(pendingTrack.duration || 180);
+      };
+    });
+
+    const newTrack: Track = {
+      id: 'track_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      title: pendingTrack.title,
+      artist: pendingTrack.artist,
+      duration,
+      artworkUrl: pendingTrack.thumbnail,
+      dateAdded: Date.now(),
+      source: 'upload', // Native audio = 100% background playback!
+    };
+
+    await addTrack(newTrack, file);
+    setIsUploading(false);
+    setPendingTrack(null);
+    setStatusMsg('🎉 백그라운드 재생 음원으로 저장 완료!');
+    setTimeout(() => {
+      setStatusMsg('');
+      onClose();
+    }, 1200);
+  };
+
+  // Trigger 1-Click Background Audio Download for YouTube item (No link copy needed!)
+  const handleDownloadYoutubeAudio = (item: SearchResultItem) => {
+    let sec = 180;
+    if (item.duration) {
+      const parts = item.duration.split(':').map(Number);
+      if (parts.length === 2) sec = parts[0] * 60 + parts[1];
+      else if (parts.length === 3) sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+
+    setPendingTrack({
+      title: item.title,
+      artist: item.channel,
+      thumbnail: item.thumbnail,
+      duration: sec,
+    });
+
+    // Open direct pre-filled downloader in Safari new tab
+    const downloadBridgeUrl = `https://ssyoutube.com/watch?v=${item.id}`;
+    window.open(downloadBridgeUrl, '_blank');
   };
 
   // Search YouTube
@@ -113,8 +188,8 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
     }
   };
 
-  // Add YouTube Track from search
-  const handleAddYoutubeTrack = async (item: SearchResultItem) => {
+  // Add YouTube Streaming Track directly
+  const handleAddYoutubeStreamTrack = async (item: SearchResultItem) => {
     let sec = 180;
     if (item.duration) {
       const parts = item.duration.split(':').map(Number);
@@ -134,7 +209,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
 
     await addTrack(track);
     setAddedIds((prev) => new Set([...prev, item.id]));
-    setStatusMsg(`'${item.title.substring(0, 18)}...' 곡이 추가되었습니다!`);
+    setStatusMsg(`'${item.title.substring(0, 16)}...' 스트리밍 추가됨!`);
     setTimeout(() => setStatusMsg(''), 2500);
   };
 
@@ -194,7 +269,7 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
 
       await addTrack(track);
       setDirectUrl('');
-      setStatusMsg(`'${title.substring(0, 18)}...' 곡이 추가되었습니다!`);
+      setStatusMsg(`'${title.substring(0, 16)}...' 곡이 추가되었습니다!`);
       setTimeout(() => {
         setStatusMsg('');
         onClose();
@@ -212,10 +287,27 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
       onClick={onClose}
       className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
     >
-      {/* Modal Dialog Sheet */}
+      {/* Hidden File Inputs */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleBulkFileChange}
+        accept="audio/*,.mp3,.m4a,.wav,.aac,.flac"
+        multiple
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={singleFileInputRef}
+        onChange={handleSingleFileChange}
+        accept="audio/*,.mp3,.m4a,.wav,.aac,.flac"
+        className="hidden"
+      />
+
+      {/* Modal Dialog Bottom Sheet */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#FAF8F5] w-full sm:max-w-lg h-[86dvh] sm:h-[80dvh] max-h-[86dvh] sm:max-h-[80dvh] rounded-t-[32px] sm:rounded-3xl border border-[#EBE5F5] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
+        className="bg-[#FAF8F5] w-full sm:max-w-lg h-[88dvh] sm:h-[82dvh] max-h-[88dvh] sm:max-h-[82dvh] rounded-t-[32px] sm:rounded-3xl border border-[#EBE5F5] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
       >
         {/* Sticky Header Section */}
         <div className="p-4 sm:p-5 pb-3 bg-[#FAF8F5] border-b border-[#EBE5F5]/70 flex-shrink-0">
@@ -240,19 +332,8 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </button>
           </div>
 
-          {/* Tab Selector: File Upload (100% Background) vs YouTube Search vs Direct Link */}
+          {/* Tab Selector: YouTube Search vs Local Files vs Direct Link */}
           <div className="flex rounded-2xl bg-[#F0E8FA]/70 p-1 mb-3">
-            <button
-              onClick={() => setTab('upload')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
-                tab === 'upload'
-                  ? 'bg-white text-[#664F91] shadow-xs'
-                  : 'text-[#756B87] hover:text-[#473D5C]'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>파일 담기 (백그라운드)</span>
-            </button>
             <button
               onClick={() => setTab('search')}
               className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
@@ -263,6 +344,17 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             >
               <Search className="w-3.5 h-3.5" />
               <span>유튜브 검색</span>
+            </button>
+            <button
+              onClick={() => setTab('upload')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                tab === 'upload'
+                  ? 'bg-white text-[#664F91] shadow-xs'
+                  : 'text-[#756B87] hover:text-[#473D5C]'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>파일 담기</span>
             </button>
             <button
               onClick={() => setTab('link')}
@@ -277,14 +369,14 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
             </button>
           </div>
 
-          {/* Search Form when Tab === 'search' */}
+          {/* Search Input when Tab === 'search' */}
           {tab === 'search' && (
             <form onSubmit={handleYoutubeSearch} className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#756B87]" />
                 <input
                   type="text"
-                  placeholder="노래 제목이나 아티스트 검색..."
+                  placeholder="노래 제목이나 가수 이름 검색... (예: 퇴사할게여)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-xl bg-white border border-[#EBE5F5] focus:outline-none focus:border-[#664F91] focus:ring-1 focus:ring-[#664F91] text-[#473D5C] placeholder-[#8E869F]"
@@ -303,18 +395,141 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-2.5 no-scrollbar pb-10">
-          {/* Tab 1: File Upload (iPhone Files App / Downloads - 100% Native Background Playback) */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-3 no-scrollbar pb-12">
+          {/* Active Pending Download Bar (When user tapped "음원 받기") */}
+          {pendingTrack && (
+            <div className="bg-[#FAF3E0] border-2 border-[#EAD5A0] rounded-2xl p-3.5 text-xs text-[#5C451D] animate-in slide-in-from-top-2 duration-200">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <Download className="w-4 h-4 text-[#8C6D23] animate-bounce" />
+                  <p className="font-bold text-[#423112] line-clamp-1">
+                    '{pendingTrack.title}' 다운로드 진행 중
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPendingTrack(null)}
+                  className="text-[#8C6D23] hover:text-[#423112] p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-[11px] text-[#7A612E] mb-2.5 leading-relaxed">
+                새 탭에서 다운로드가 완료되면, 아래 버튼을 눌러 아이폰 다운로드 폴더의 파일을 선택해 주세요!
+              </p>
+              <button
+                onClick={() => singleFileInputRef.current?.click()}
+                className="w-full py-2 bg-[#664F91] text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs hover:bg-[#584180] active:scale-98 transition-all"
+              >
+                <FileAudio className="w-4 h-4" />
+                <span>📂 다운로드한 파일 선택하여 보관함에 담기</span>
+              </button>
+            </div>
+          )}
+
+          {/* Tab 1: YouTube Search Results */}
+          {tab === 'search' && (
+            <>
+              {/* Informative Tip Box */}
+              <div className="bg-white/90 border border-[#EBE5F5] rounded-2xl p-3 text-xs text-[#756B87] space-y-1">
+                <p className="font-semibold text-[#473D5C] flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#664F91]" />
+                  <span>잠금화면 무한 재생 안내</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  • <strong>[🎵 음원 받기]</strong>: 터치 한 번으로 다운로드 후 보관함에 담으면 <strong>화면 꺼짐/잠금화면에서 100% 무중단 재생</strong>됩니다.<br />
+                  • <strong>[+ 스트리밍]</strong>: 화면을 켜놓고 즉시 듣고 싶을 때 바로 추가됩니다.<br />
+                  • <strong>Brave 브라우저 팁</strong>: Brave 앱을 쓰시면 다운로드 없이도 화면 꺼진 상태에서 바로 재생됩니다.
+                </p>
+              </div>
+
+              {isSearching ? (
+                <div className="py-16 text-center text-[#8E869F] text-xs flex flex-col items-center gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#664F91]" />
+                  <span>유튜브에서 검색 중...</span>
+                </div>
+              ) : searchResults.length > 0 ? (
+                searchResults.map((item) => {
+                  const isAdded = addedIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-[#EBE5F5] hover:border-[#DED1F2] transition-colors shadow-2xs"
+                    >
+                      {/* Thumbnail */}
+                      <div className="relative w-16 h-12 rounded-xl overflow-hidden bg-[#F0E8FA] flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.thumbnail}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                        {item.duration && (
+                          <span className="absolute bottom-1 right-1 bg-black/75 text-white text-[9px] px-1 py-0.2 rounded font-mono">
+                            {item.duration}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Title & Channel */}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-[#473D5C] line-clamp-1">
+                          {item.title}
+                        </p>
+                        <p className="text-[11px] text-[#756B87] truncate mt-0.5">
+                          {item.channel}
+                        </p>
+                      </div>
+
+                      {/* Action Buttons: Download Audio (Background) vs Streaming Add */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {/* 1-Click Background Audio Downloader */}
+                        <button
+                          onClick={() => handleDownloadYoutubeAudio(item)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-[#FAF3E0] text-[#7A612E] hover:bg-[#F3E7C4] border border-[#EAD5A0] active:scale-95 transition-all shadow-2xs"
+                          title="잠금화면/백그라운드 무한 재생용 음원 받기"
+                        >
+                          <Download className="w-3 h-3 text-[#8C6D23]" />
+                          <span>음원 받기</span>
+                        </button>
+
+                        {/* Instant Streaming Add */}
+                        <button
+                          onClick={() => handleAddYoutubeStreamTrack(item)}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition-all ${
+                            isAdded
+                              ? 'bg-[#C9EDDE] text-[#2F5244]'
+                              : 'bg-[#F0E8FA] text-[#664F91] hover:bg-[#664F91] hover:text-white active:scale-95'
+                          }`}
+                          title="스트리밍으로 바로 추가"
+                        >
+                          {isAdded ? (
+                            <>
+                              <Check className="w-3 h-3" />
+                              <span>추가됨</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3 h-3" />
+                              <span>스트리밍</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-16 text-center text-[#8E869F] text-xs">
+                  <p>듣고 싶은 노래 제목이나 아티스트를 검색해 보세요.</p>
+                  <p className="text-[11px] mt-1 text-[#756B87]">예: 퇴사할게여, 아이유, NewJeans, Lo-fi</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Tab 2: Bulk Local File Upload (100% Native Background Playback) */}
           {tab === 'upload' && (
             <div className="space-y-4 py-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="audio/*,.mp3,.m4a,.wav,.aac,.flac"
-                multiple
-                className="hidden"
-              />
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-[#DED1F2] bg-white hover:bg-[#F0E8FA]/40 rounded-2xl p-7 text-center cursor-pointer transition-colors group"
@@ -340,75 +555,6 @@ export function AddMusicModal({ isOpen, onClose }: AddMusicModalProps) {
                 </p>
               </div>
             </div>
-          )}
-
-          {/* Tab 2: YouTube Search */}
-          {tab === 'search' && (
-            isSearching ? (
-              <div className="py-16 text-center text-[#8E869F] text-xs flex flex-col items-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-[#664F91]" />
-                <span>유튜브에서 검색 중...</span>
-              </div>
-            ) : searchResults.length > 0 ? (
-              searchResults.map((item) => {
-                const isAdded = addedIds.has(item.id);
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-2.5 rounded-2xl bg-white border border-[#EBE5F5] hover:border-[#DED1F2] transition-colors gap-3 shadow-2xs"
-                  >
-                    <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-[#F0E8FA] flex-shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.thumbnail}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                      {item.duration && (
-                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1 py-0.2 rounded font-mono">
-                          {item.duration}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-[#473D5C] line-clamp-1">
-                        {item.title}
-                      </p>
-                      <p className="text-[11px] text-[#756B87] truncate mt-0.5">
-                        {item.channel}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => handleAddYoutubeTrack(item)}
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0 ${
-                        isAdded
-                          ? 'bg-[#C9EDDE] text-[#2F5244]'
-                          : 'bg-[#F0E8FA] text-[#664F91] hover:bg-[#664F91] hover:text-white active:scale-95'
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>추가됨</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>추가</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="py-16 text-center text-[#8E869F] text-xs">
-                <p>듣고 싶은 노래 제목이나 아티스트를 검색해 보세요.</p>
-                <p className="text-[11px] mt-1 text-[#756B87]">예: 퇴사할게여, 아이유, NewJeans, Lo-fi</p>
-              </div>
-            )
           )}
 
           {/* Tab 3: Direct Link */}
