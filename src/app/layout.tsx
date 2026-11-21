@@ -47,6 +47,9 @@ export default function RootLayout({
           {children}
         </PlayerProvider>
         
+        {/* YouTube IFrame API Script */}
+        <Script src="https://www.youtube.com/iframe_api" strategy="afterInteractive" />
+
         {/* Anti-zoom & Anti-gesture Script for iOS App-like Experience */}
         <Script id="prevent-zoom" strategy="afterInteractive">
           {`
@@ -66,7 +69,6 @@ export default function RootLayout({
             document.addEventListener('touchend', function(event) {
               const now = Date.now();
               if (now - lastTouchEnd <= 300) {
-                // If it's not inside an input
                 if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
                   event.preventDefault();
                 }
